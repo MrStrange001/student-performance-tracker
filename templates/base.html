@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Performance Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>Student Performance Tracker</h1>
+                <nav>
+                    <a href="{{ url_for('index') }}">Home</a>
+                    <a href="{{ url_for('add_student') }}">Add Student</a>
+                    <a href="{{ url_for('add_grades') }}">Add Grades</a>
+                    <a href="{{ url_for('reports') }}">Reports</a>
+                    <div class="export-dropdown">
+                        <a href="#" class="btn-export">Export Data ▼</a>
+                        <div class="export-options">
+                            <a href="{{ url_for('export_data') }}">CSV Format</a>
+                            <a href="{{ url_for('export_json') }}">JSON Format</a>
+                            <a href="{{ url_for('backup') }}">Text Backup</a>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <main>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer>
+            <p>&copy; 2023 Student Performance Tracker - Professional Education Management System</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

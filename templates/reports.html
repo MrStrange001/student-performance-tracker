@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Performance Reports</h2>
+
+<div class="reports">
+    <h3>Subject-wise Toppers</h3>
+    {% if subjects %}
+    <table>
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Topper</th>
+                <th>Grade</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for subject in subjects %}
+            <tr>
+                <td>{{ subject }}</td>
+                <td>
+                    {% if subject_toppers[subject] %}
+                        {{ subject_toppers[subject].name }} ({{ subject_toppers[subject].roll_number }})
+                    {% else %}
+                        No data
+                    {% endif %}
+                </td>
+                <td>
+                    {% if subject_toppers[subject] %}
+                        {{ subject_toppers[subject].grade }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No subjects with grades found.</p>
+    {% endif %}
+
+    <h3>Subject-wise Averages</h3>
+    {% if subjects %}
+    <table>
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Average Grade</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for subject in subjects %}
+            <tr>
+                <td>{{ subject }}</td>
+                <td>{{ "%.2f"|format(subject_averages[subject]) if subject_averages[subject] else "No data" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No subjects with grades found.</p>
+    {% endif %}
+
+    <h3>Overall Class Average: {{ "%.2f"|format(overall_average) if overall_average else "No data" }}</h3>
+</div>
+{% endblock %}
