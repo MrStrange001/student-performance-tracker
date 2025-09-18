@@ -1,226 +1,178 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, Response
-from database import get_db_connection, init_db
-from models import StudentTracker
-import os
-import csv
-import io
-import json
-from datetime import datetime
+from flask import Flask, render_template, request, redirect, url_for, flash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+app.secret_key = "supersecretkey"
 
-# Initialize database
-init_db()
+# In-memory storage
+students = []
 
-@app.route('/')
+# Structure: {roll_number: {'mst1': {subject: marks}, 'mst2': {...}, 'final': {...}}}
+marks_data = {}
+
+# Utility functions
+def calculate_student_average(roll_number):
+    student_marks = marks_data.get(roll_number, {})
+    total = 0
+    count = 0
+    for exam in ['mst1', 'mst2', 'final']:
+        for subject, mark in student_marks.get(exam, {}).items():
+            total += mark
+            count += 1
+    return total / count if count > 0 else 0
+
+def get_subjects():
+    subjects = set()
+    for student_marks in marks_data.values():
+        for exam_marks in student_marks.values():
+            subjects.update(exam_marks.keys())
+    return sorted(subjects)
+
+def get_subject_toppers():
+    toppers = {}
+    subjects = get_subjects()
+    for subject in subjects:
+        max_mark = -1
+        topper = None
+        for student in students:
+            roll = student['roll_number']
+            student_marks = marks_data.get(roll, {})
+            for exam in ['mst1', 'mst2', 'final']:
+                mark = student_marks.get(exam, {}).get(subject)
+                if mark is not None and mark > max_mark:
+                    max_mark = mark
+                    topper = {'name': student['name'], 'roll_number': roll, 'grade': mark}
+        toppers[subject] = topper
+    return toppers
+
+def get_subject_averages():
+    averages = {}
+    subjects = get_subjects()
+    for subject in subjects:
+        total = 0
+        count = 0
+        for student_marks in marks_data.values():
+            for exam in ['mst1','mst2','final']:
+                mark = student_marks.get(exam, {}).get(subject)
+                if mark is not None:
+                    total += mark
+                    count += 1
+        averages[subject] = total / count if count else 0
+    return averages
+
+def calculate_overall_average():
+    total = 0
+    count = 0
+    for student in students:
+        roll = student['roll_number']
+        avg = calculate_student_average(roll)
+        if avg:
+            total += avg
+            count += 1
+    return total / count if count else 0
+
+# Routes
+@app.route("/")
 def index():
-    conn = get_db_connection()
-    tracker = StudentTracker(conn)
-    students = tracker.get_all_students()
-    conn.close()
-    return render_template('index.html', students=students)
+    return render_template("index.html", students=students)
 
-@app.route('/add_student', methods=['GET', 'POST'])
+@app.route("/add_student", methods=["GET","POST"])
 def add_student():
-    if request.method == 'POST':
+    if request.method == "POST":
         name = request.form['name']
         roll_number = request.form['roll_number']
-        
-        if not name or not roll_number:
-            flash('Name and roll number are required!', 'error')
+        if any(s['roll_number'] == roll_number for s in students):
+            flash("Roll Number already exists!", "error")
             return redirect(url_for('add_student'))
-        
-        conn = get_db_connection()
-        tracker = StudentTracker(conn)
-        success, message = tracker.add_student(name, roll_number)
-        conn.close()
-        
-        flash(message, 'success' if success else 'error')
+        students.append({'name': name, 'roll_number': roll_number})
+        flash(f"Student {name} added!", "success")
         return redirect(url_for('index'))
-    
-    return render_template('add_student.html')
+    return render_template("add_student.html")
 
-@app.route('/add_grades', methods=['GET', 'POST'])
-def add_grades():
-    conn = get_db_connection()
-    tracker = StudentTracker(conn)
-    
-    if request.method == 'POST':
+@app.route("/add_marks", methods=["GET","POST"])
+def add_marks():
+    exam_type = request.args.get('exam_type', None)  # optional, handled in page
+    if request.method == "POST":
         roll_number = request.form['roll_number']
+        exam_type = request.form['exam_type']
         subject = request.form['subject']
-        grade = request.form['grade']
-        
-        if not all([roll_number, subject, grade]):
-            flash('All fields are required!', 'error')
-            return redirect(url_for('add_grades'))
-        
-        try:
-            grade = int(grade)
-            if grade < 0 or grade > 100:
-                flash('Grade must be between 0 and 100!', 'error')
-                return redirect(url_for('add_grades'))
-        except ValueError:
-            flash('Grade must be a number!', 'error')
-            return redirect(url_for('add_grades'))
-        
-        student = tracker.get_student(roll_number=roll_number)
-        if not student:
-            flash('Student not found!', 'error')
-            return redirect(url_for('add_grades'))
-        
-        success, message = tracker.add_grade(student.id, subject, grade)
-        flash(message, 'success' if success else 'error')
-        return redirect(url_for('index'))
-    
-    students = tracker.get_all_students()
-    conn.close()
-    return render_template('add_grades.html', students=students)
+        marks = request.form.get('marks', None)
+        if not marks:
+            flash("Please enter marks", "error")
+            return redirect(url_for('add_marks'))
+        marks = float(marks)
 
-@app.route('/view_student/<roll_number>')
+        if roll_number not in marks_data:
+            marks_data[roll_number] = {'mst1': {}, 'mst2': {}, 'final': {}}
+        marks_data[roll_number][exam_type][subject] = marks
+        flash(f"Added marks for {subject} under {exam_type.upper()} for student {roll_number}", "success")
+        return redirect(url_for('add_marks'))
+
+    return render_template("add_marks.html", students=students, exam_type=exam_type)
+
+@app.route("/student/<roll_number>")
 def view_student(roll_number):
-    conn = get_db_connection()
-    tracker = StudentTracker(conn)
-    student = tracker.get_student(roll_number=roll_number)
-    conn.close()
-    
+    student = next((s for s in students if s['roll_number']==roll_number), None)
     if not student:
-        flash('Student not found!', 'error')
+        flash("Student not found!", "error")
         return redirect(url_for('index'))
-    
-    return render_template('view_student.html', student=student)
+    student_marks = marks_data.get(roll_number, {})
+    # Combine all exams into a single dict for display
+    combined_grades = {}
+    for exam in ['mst1','mst2','final']:
+        combined_grades.update(student_marks.get(exam, {}))
+    student['grades'] = combined_grades
+    student['average'] = calculate_student_average(roll_number)
+    return render_template("view_student.html", student=student)
 
-@app.route('/reports')
+@app.route("/reports")
 def reports():
-    conn = get_db_connection()
-    tracker = StudentTracker(conn)
-    
-    # Get all subjects from the database
-    cursor = conn.cursor()
-    cursor.execute('SELECT DISTINCT subject FROM grades ORDER BY subject')
-    subjects_data = cursor.fetchall()
-    subjects = [subject['subject'] for subject in subjects_data] if subjects_data else ['Math', 'Science', 'English']
-    
-    subject_toppers = {}
-    subject_averages = {}
-    
-    for subject in subjects:
-        topper = tracker.get_subject_topper(subject)
-        subject_toppers[subject] = topper
-        subject_averages[subject] = tracker.get_class_average(subject)
-    
-    overall_average = tracker.get_class_average()
-    conn.close()
-    
-    return render_template('reports.html', 
-                          subjects=subjects,
-                          subject_toppers=subject_toppers,
-                          subject_averages=subject_averages,
-                          overall_average=overall_average)
+    subjects = get_subjects()
+    subject_toppers = get_subject_toppers()
+    subject_averages = get_subject_averages()
+    overall_average = calculate_overall_average()
+    return render_template("reports.html", subjects=subjects,
+                           subject_toppers=subject_toppers,
+                           subject_averages=subject_averages,
+                           overall_average=overall_average)
 
 # Export routes
-@app.route('/export_data')
+@app.route("/export/csv")
 def export_data():
-    conn = get_db_connection()
-    tracker = StudentTracker(conn)
-    students = tracker.get_all_students()
-    
-    # Create CSV in memory
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow(['Roll Number', 'Name', 'Subject', 'Grade', 'Average'])
-    
-    # Write data
-    for student in students:
-        if student.grades:
-            for subject, grade in student.grades.items():
-                writer.writerow([
-                    student.roll_number, 
-                    student.name, 
-                    subject, 
-                    grade, 
-                    student.calculate_average()
-                ])
-        else:
-            writer.writerow([
-                student.roll_number, 
-                student.name, 
-                'No grades', 
-                '', 
-                ''
-            ])
-    
-    conn.close()
-    
-    # Return CSV file
-    output.seek(0)
-    return Response(
-        output,
-        mimetype="text/csv",
-        headers={"Content-Disposition": "attachment;filename=student_data.csv"}
-    )
+    import csv
+    from io import StringIO
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Roll Number','Name','Exam','Subject','Marks'])
+    for roll, exams in marks_data.items():
+        student_name = next((s['name'] for s in students if s['roll_number']==roll), '')
+        for exam, subjects in exams.items():
+            for subject, marks in subjects.items():
+                cw.writerow([roll, student_name, exam.upper(), subject, marks])
+    return si.getvalue(), 200, {'Content-Type':'text/csv'}
 
-@app.route('/export_json')
+@app.route("/export/json")
 def export_json():
-    conn = get_db_connection()
-    tracker = StudentTracker(conn)
-    students = tracker.get_all_students()
-    
-    # Prepare data for JSON
-    data = {
-        "export_date": datetime.now().isoformat(),
-        "students": []
-    }
-    
-    for student in students:
-        student_data = {
-            "roll_number": student.roll_number,
-            "name": student.name,
-            "grades": student.grades,
-            "average": student.calculate_average()
-        }
-        data["students"].append(student_data)
-    
-    conn.close()
-    
-    # Return JSON file
-    return Response(
-        json.dumps(data, indent=2),
-        mimetype="application/json",
-        headers={"Content-Disposition": "attachment;filename=student_data.json"}
-    )
+    import json
+    data = []
+    for roll, exams in marks_data.items():
+        student_name = next((s['name'] for s in students if s['roll_number']==roll), '')
+        for exam, subjects in exams.items():
+            for subject, marks in subjects.items():
+                data.append({'roll_number': roll, 'name': student_name, 'exam': exam.upper(), 'subject': subject, 'marks': marks})
+    return json.dumps(data, indent=4), 200, {'Content-Type':'application/json'}
 
-@app.route('/backup')
+@app.route("/backup")
 def backup():
-    conn = get_db_connection()
-    tracker = StudentTracker(conn)
-    students = tracker.get_all_students()
-    
-    # Create text backup
-    backup_text = f"Student Data Backup - {datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
-    backup_text += "=" * 50 + "\n\n"
-    
-    for student in students:
-        backup_text += f"Student: {student.name} ({student.roll_number})\n"
-        if student.grades:
-            for subject, grade in student.grades.items():
-                backup_text += f"  {subject}: {grade}\n"
-            backup_text += f"  Average: {student.calculate_average():.2f}\n"
-        else:
-            backup_text += "  No grades recorded\n"
-        backup_text += "\n"
-    
-    conn.close()
-    
-    # Return text file
-    return Response(
-        backup_text,
-        mimetype="text/plain",
-        headers={"Content-Disposition": "attachment;filename=student_backup.txt"}
-    )
+    data = ""
+    for roll, exams in marks_data.items():
+        student_name = next((s['name'] for s in students if s['roll_number']==roll), '')
+        data += f"Student: {student_name} ({roll})\n"
+        for exam, subjects in exams.items():
+            data += f"  {exam.upper()}:\n"
+            for subject, marks in subjects.items():
+                data += f"    {subject}: {marks}\n"
+        data += "\n"
+    return data, 200, {'Content-Type':'text/plain'}
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+if __name__ == "__main__":
+    app.run(debug=True)
