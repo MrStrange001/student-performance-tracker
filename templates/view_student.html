@@ -4,30 +4,39 @@
 <h2>Student Details: {{ student.name }}</h2>
 
 <div class="student-details">
-    <p><strong>Roll Number:</strong> {{ student.roll_number }}</p>
+    <p><strong>Roll Number:</strong> {{ roll }}</p>
     
-    <h3>Grades</h3>
-    {% if student.grades %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Subject</th>
-                    <th>Grade</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for subject, grade in student.grades.items() %}
-                <tr>
-                    <td>{{ subject }}</td>
-                    <td>{{ grade }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        
-        <p><strong>Average Grade:</strong> {{ "%.2f"|format(student.calculate_average()) }}</p>
+    <h3>MST 1 Marks</h3>
+    {% if student.mst1 %}
+        <ul>
+        {% for subject, marks in student.mst1.items() %}
+            <li>{{ subject }}: {{ marks }}/20</li>
+        {% endfor %}
+        </ul>
     {% else %}
-        <p>No grades recorded yet.</p>
+        <p>No MST 1 marks recorded yet.</p>
+    {% endif %}
+
+    <h3>MST 2 Marks</h3>
+    {% if student.mst2 %}
+        <ul>
+        {% for subject, marks in student.mst2.items() %}
+            <li>{{ subject }}: {{ marks }}/20</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No MST 2 marks recorded yet.</p>
+    {% endif %}
+
+    <h3>Final Exam Marks</h3>
+    {% if student.finals %}
+        <ul>
+        {% for subject, marks in student.finals.items() %}
+            <li>{{ subject }} - Theory: {{ marks.theory }}/60, Practical: {{ marks.practical }}/40</li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No final exam marks recorded yet.</p>
     {% endif %}
 </div>
 
