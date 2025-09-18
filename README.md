@@ -49,11 +49,11 @@ Features a **modern dark theme**, smooth animations, and comprehensive reporting
 
 - ✅ **Intialize the Database**
    ```bash
-   python app.py
+   python databse.py
 
 - ✅ **Run the application**
    ```bash
-   python database.py
+   python app.py
 
 - ✅ **Open the application in your browser**
    ```bash
