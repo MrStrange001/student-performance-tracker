@@ -49,7 +49,7 @@ Features a **modern dark theme**, smooth animations, and comprehensive reporting
 
 - ✅ **Intialize the Database**
    ```bash
-   python database.py
+   python app.py
 
 - ✅ **Run the application**
    ```bash
