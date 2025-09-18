@@ -10,18 +10,16 @@
                 <tr>
                     <th>Roll Number</th>
                     <th>Name</th>
-                    <th>Average Grade</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {% for student in students %}
+                {% for roll, student in students.items() %}
                 <tr>
-                    <td>{{ student.roll_number }}</td>
+                    <td>{{ roll }}</td>
                     <td>{{ student.name }}</td>
-                    <td>{{ "%.2f"|format(student.calculate_average()) }}</td>
                     <td>
-                        <a href="{{ url_for('view_student', roll_number=student.roll_number) }}" class="btn">View Details</a>
+                        <a href="{{ url_for('view_student', roll=roll) }}" class="btn">View Details</a>
                     </td>
                 </tr>
                 {% endfor %}
