@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Add Marks</h2>
+
+<form method="POST">
+    <div class="form-group">
+        <label for="roll_number">Student:</label>
+        <select id="roll_number" name="roll_number" required>
+            <option value="">Select a student</option>
+            {% for student in students %}
+            <option value="{{ student.roll_number }}">{{ student.name }} ({{ student.roll_number }})</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="exam_type">Exam Type:</label>
+        <select id="exam_type" name="exam_type" required>
+            <option value="">Select exam type</option>
+            <option value="mst1">MST 1</option>
+            <option value="mst2">MST 2</option>
+            <option value="final">Final Exam</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="subject">Subject:</label>
+        <input type="text" id="subject" name="subject" placeholder="Enter subject name" required>
+    </div>
+
+    <!-- MST Marks -->
+    <div id="mst_marks_field" class="form-group">
+        <label for="marks">Marks:</label>
+        <input type="number" id="marks" name="marks" min="0" placeholder="Enter marks" required>
+    </div>
+
+    <!-- Final Exam Marks -->
+    <div id="final_marks_field" style="display:none;">
+        <div class="form-group">
+            <label for="final_theory">Theory Marks (0-60):</label>
+            <input type="number" id="final_theory" name="final_theory" min="0" max="60" placeholder="Enter theory marks">
+        </div>
+        <div class="form-group">
+            <label for="final_practical">Practical Marks (0-40):</label>
+            <input type="number" id="final_practical" name="final_practical" min="0" max="40" placeholder="Enter practical marks">
+        </div>
+    </div>
+
+    <button type="submit" class="btn">Add Marks</button>
+    <a href="{{ url_for('index') }}" class="btn">Cancel</a>
+</form>
+
+<script>
+const examType = document.getElementById("exam_type");
+const mstMarksField = document.getElementById("mst_marks_field");
+const finalMarksField = document.getElementById("final_marks_field");
+const marksInput = document.getElementById("marks");
+
+examType.addEventListener("change", function() {
+    if (this.value === "mst1" || this.value === "mst2") {
+        mstMarksField.style.display = "block";
+        finalMarksField.style.display = "none";
+        marksInput.max = 20;
+        marksInput.placeholder = "Enter marks (0-20)";
+        marksInput.required = true;
+        document.getElementById("final_theory").required = false;
+        document.getElementById("final_practical").required = false;
+    } else if (this.value === "final") {
+        mstMarksField.style.display = "none";
+        finalMarksField.style.display = "block";
+        document.getElementById("final_theory").required = true;
+        document.getElementById("final_practical").required = true;
+        marksInput.required = false;
+    } else {
+        mstMarksField.style.display = "block";
+        finalMarksField.style.display = "none";
+        marksInput.removeAttribute("max");
+        marksInput.placeholder = "Enter marks";
+        marksInput.required = true;
+        document.getElementById("final_theory").required = false;
+        document.getElementById("final_practical").required = false;
+    }
+});
+</script>
+{% endblock %}
